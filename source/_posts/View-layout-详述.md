@@ -1,0 +1,73 @@
+---
+title: View.layout()详述
+date: 2017-02-23 21:59:15
+tags:
+    - View的绘制原理
+---
+**一、总体调用过程**  
+
+View的layout过程实际上是调用layout函数，这个函数的内部调用过程如下所示。
+
+<div style="text-align: center"> <img src="http://p1.bqimg.com/567571/d4a545b989742818.png"/> </div>
+
+可以看到，layout过程主要分为三步：  
+（1）判断是否已经measure，如果不是，则先进行measure，调用onMeasure方法  
+（2） 判断isLayoutModeOptical函数条件是否成立，如果是，调用setOptionFrame函数，否则调用setFrame函数  
+（3）判断该view的size和position是否发生改变或者是否有标记一定要layout，如果这两者有一个成立，则真正进行layout，即进行onLayout过程。最后再通知监听这个view的所有监听者。
+
+这里每一点都有问题需要解决。
+
+**二、步骤一**  
+
+1、PFLAG3_MEASURE_NEEDED_BEFORE_LAYOUT在哪里设置的？为什么不是调用measure函数而是调用onMeasure函数呢？  
+
+在View中，PFLAG3_MEASURE_NEEDED_BEFORE_LAYOUT只有在一个地方设置，就是measure（）函数中使用cache的分支，如下：
+
+```java
+int cacheIndex = (mPrivateFlags & PFLAG_FORCE_LAYOUT) == PFLAG_FORCE_LAYOUT ? -1 :
+        mMeasureCache.indexOfKey(key);
+if (cacheIndex < 0 || sIgnoreMeasureCache) {
+    // measure ourselves, this should set the measured dimension flag back
+    onMeasure(widthMeasureSpec, heightMeasureSpec);
+    mPrivateFlags3 &= ~PFLAG3_MEASURE_NEEDED_BEFORE_LAYOUT;
+} else {
+    long value = mMeasureCache.valueAt(cacheIndex);
+    // Casting a long to int drops the high 32 bits, no mask needed
+    setMeasuredDimensionRaw((int) (value >> 32), (int) value);
+    mPrivateFlags3 |= PFLAG3_MEASURE_NEEDED_BEFORE_LAYOUT;
+}
+```
+
+这就很好解释为什么要调用onMeasure函数而不是measure函数。 
+
+在layout函数中是在PFLAG3_MEASURE_NEEDED_BEFORE_LAYOUT标记存在时才会进行measure，而这个标记只有在measure函数中的cache分支才会设置，并且在这个分支中并没有进行measure，而是直接使用缓存，因此在layout中就要调用onMeasure函数进行真正的测量过程。
+
+**三、步骤二**  
+1、isLayoutModeOptical（Object o）函数内部具体是做什么？  
+如果o是ViewGroup并且它的模式是边界布局模式，则返回true，否则返回false。  
+
+2、setFrame函数内部具体怎么实现？  
+setFrame用于设置四个顶点的左边。
+
+**四、步骤三**  
+1、changed参数在哪里赋值的？  
+boolean changed = isLayoutModeOptical(mParent) ? setOpticalFrame(l, t, r, b) : setFrame(l, t, r, b);
+
+2、PFLAG_LAYOUT_REQUIRED参数在哪里设置的？  
+在measure函数中
+```
+(mPrivateFlags & PFLAG_FORCE_LAYOUT) == PFLAG_FORCE_LAYOUT ||
+        widthMeasureSpec != mOldWidthMeasureSpec ||
+        heightMeasureSpec != mOldHeightMeasureSpec)
+```
+这个条件成立后必定会设置PFLAG_LAYOUT_REQUIRED。
+
+这样就可以看出上述流程图中的一个条件是怎么回事了。  
+changed || (mPrivateFlags & PFLAG_LAYOUT_REQUIRED) == PFLAG_LAYOUT_REQUIRED
+
+changed是由setFrame或者setOptionFrame函数设置的，只要view和view的parent的相对位置发生变化，changed就为true（changed反映的是view相对于parent的位置变化）。
+PFALG_LAYOUT_REQUIRED参数是在measure阶段，只要width或者height发生改变，或者强制进行layout设置，那么这个参数就必定会设置。（PFLAG_LAYOUT_REQUIRED反映的是view自身的变化）
+
+3、onLayout函数内部具体怎么实现？  
+onLayout在view中是空的，它由具体的viewgroup决定怎么布置，linearLayout和relativeLayout明显规则就不一样。
+
