@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<!-- Head tag -->
+<head><meta name="generator" content="Hexo 3.8.0">
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="google-site-verification" content="xBT4GhYoi5qRD5tr338pgPM5OWHHIDR6mNg1a3euekI">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content>
+    <meta name="keyword" content>
+    <link rel="shortcut icon" href="/img/favicon.ico">
+
+    <title>
+        
+          Okhttp源码解析 - cpb的博客 | cpb&#39;s Blog
+        
+    </title>
+
+    <link rel="canonical" href="http://yoursite.com/2017/02/24/Okhttp源码解析/">
+
+    <!-- Bootstrap Core CSS -->
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/css/hux-blog.min.css">
+
+    <!-- Pygments Highlight CSS -->
+    <link rel="stylesheet" href="/css/highlight.css">
+
+    <!-- Custom Fonts -->
+    <!-- <link href="https://maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css" rel="stylesheet" type="text/css"> -->
+    <!-- Hux change font-awesome CDN to qiniu -->
+    <link href="https://cdn.staticfile.org/font-awesome/4.5.0/css/font-awesome.min.css" rel="stylesheet" type="text/css">
+
+
+    <!-- Hux Delete, sad but pending in China
+    <link href='http://fonts.googleapis.com/css?family=Lora:400,700,400italic,700italic' rel='stylesheet' type='text/css'>
+    <link href='http://fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,800italic,400,300,600,700,800' rel='stylesheet' type='text/
+    css'>
+    -->
+
+
+    <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+    <!--[if lt IE 9]>
+        <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+        <script src="https://oss.maxcdn.com/libs/respond.js/1.4.2/respond.min.js"></script>
+    <![endif]-->
+
+    <!-- ga & ba script hoook -->
+    <script></script>
+</head>
+
+
+<!-- hack iOS CSS :active style -->
+<body ontouchstart="">
+
+    <!-- Navigation -->
+<nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+    <div class="container-fluid">
+        <!-- Brand and toggle get grouped for better mobile display -->
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">cpb&#39;s Blog</a>
+        </div>
+
+        <!-- Collect the nav links, forms, and other content for toggling -->
+        <!-- Known Issue, found by Hux:
+            <nav>'s height woule be hold on by its content.
+            so, when navbar scale out, the <nav> will cover tags.
+            also mask any touch event of tags, unfortunately.
+        -->
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li>
+                        <a href="/">Home</a>
+                    </li>
+
+                    
+
+                        
+                    
+
+                        
+                        <li>
+                            <a href="/archives/">Archives</a>
+                        </li>
+                        
+                    
+
+                        
+                        <li>
+                            <a href="/about/">About</a>
+                        </li>
+                        
+                    
+
+                        
+                        <li>
+                            <a href="/tags/">Tags</a>
+                        </li>
+                        
+                    
+                    
+                </ul>
+            </div>
+        </div>
+        <!-- /.navbar-collapse -->
+    </div>
+    <!-- /.container -->
+</nav>
+<script>
+    // Drop Bootstarp low-performance Navbar
+    // Use customize navbar with high-quality material design animation
+    // in high-perf jank-free CSS3 implementation
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+
+    $toggle.addEventListener('click', handleMagic)
+    function handleMagic(e){
+        if ($navbar.className.indexOf('in') > 0) {
+        // CLOSE
+            $navbar.className = " ";
+            // wait until animation end.
+            setTimeout(function(){
+                // prevent frequently toggle
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        }else{
+        // OPEN
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+</script>
+
+
+    <!-- Main Content -->
+    
+<!-- Image to hack wechat -->
+<!-- <img src="http://yoursite.com/img/icon_wechat.png" width="0" height="0"> -->
+<!-- <img src="{{ site.baseurl }}/{% if page.header-img %}{{ page.header-img }}{% else %}{{ site.header-img }}{% endif %}" width="0" height="0"> -->
+
+<!-- Post Header -->
+<style type="text/css">
+    header.intro-header{
+        background-image: url('/img/background.jpg')
+    }
+</style>
+<header class="intro-header">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                          <a class="tag" href="/tags/#项目深化" title="项目深化">项目深化</a>
+                        
+                    </div>
+                    <h1>Okhttp源码解析</h1>
+                    <h2 class="subheading"></h2>
+                    <span class="meta">
+                        Posted by cpb on
+                        2017-02-24
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+<!-- Post Content -->
+<article>
+    <div class="container">
+        <div class="row">
+
+    <!-- Post Container -->
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+
+                <p>OkHttp源码中我们要解决的问题有：</p>
+<ul>
+<li>责任链模式怎么在OkHttp中应用的？责任链中的每一环具体在做什么？</li>
+<li>同步请求与异步请求的区别以及怎么实现？</li>
+</ul>
+<h2 id="责任链模式怎么在OkHttp中应用的？责任链中的每一环具体在做什么？"><a href="#责任链模式怎么在OkHttp中应用的？责任链中的每一环具体在做什么？" class="headerlink" title="责任链模式怎么在OkHttp中应用的？责任链中的每一环具体在做什么？"></a>责任链模式怎么在OkHttp中应用的？责任链中的每一环具体在做什么？</h2><p>以一个实际例子来跟踪责任链。<br><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> String <span class="title">run</span><span class="params">(String url)</span><span class="keyword">throws</span> IOException</span>&#123;</span><br><span class="line">    Request request = <span class="keyword">new</span> Request.Builder().url(url).build();</span><br><span class="line">    <span class="keyword">try</span>(Response response = okHttpClient.newCall(request).execute())&#123;</span><br><span class="line">        <span class="keyword">return</span> response.body().string();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>这个过程分为两步：</p>
+<ol>
+<li>构建Request</li>
+<li>发送请求</li>
+</ol>
+<h3 id="1-构建Request"><a href="#1-构建Request" class="headerlink" title="1. 构建Request"></a>1. 构建Request</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">Request request = <span class="keyword">new</span> Request.Builder().url(url).build();</span><br></pre></td></tr></table></figure>
+<div style="text-align: center"><br><img src="http://p1.bqimg.com/567571/03643f8867c4321b.png"><br></div>
+
+<p>这个过程分为三步：</p>
+<ul>
+<li>构建Builder对象，初始化Builder中的heads和method参数</li>
+<li>调用url函数，构建HttpUrl结构，初始化Builder中的url参数</li>
+<li>调用builder函数，使用Builder构建Request对象</li>
+</ul>
+<h4 id="1-1-构建Builder对象，初始化Builder中的heads和method参数"><a href="#1-1-构建Builder对象，初始化Builder中的heads和method参数" class="headerlink" title="1.1 构建Builder对象，初始化Builder中的heads和method参数"></a>1.1 构建Builder对象，初始化Builder中的heads和method参数</h4><p>首先搞清楚Request.Builder中到底有哪些参数：</p>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>类型</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>url</td>
+<td>HttpUrl</td>
+</tr>
+<tr>
+<td>method</td>
+<td>String</td>
+</tr>
+<tr>
+<td>headers</td>
+<td>Headers.Builder</td>
+</tr>
+<tr>
+<td>body</td>
+<td>RequestBody</td>
+</tr>
+<tr>
+<td>tag</td>
+<td>Object</td>
+</tr>
+</tbody>
+</table>
+<p>Builder构造函数：<br><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="title">Builder</span><span class="params">()</span> </span>&#123;</span><br><span class="line">      <span class="keyword">this</span>.method = <span class="string">"GET"</span>;</span><br><span class="line">      <span class="keyword">this</span>.headers = <span class="keyword">new</span> Headers.Builder();</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure></p>
+<p>注意：</p>
+<ul>
+<li>这里的Headers.Builder()构造函数是空的，并且现在的这个Builder构造函数是Request.Builder的构造函数。也就是说，Request.Builder中初始化了一个Headers.Builder作为headers。</li>
+<li><p>Headers.Builder中只有一个属性且没有继承其他类：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">final</span> List&lt;String&gt; namesAndValues = <span class="keyword">new</span> ArrayList&lt;&gt;(<span class="number">20</span>);</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>默认的method为GET</p>
+</li>
+</ul>
+<p>总结一下，通过【1.构建Builder对象，初始化Builder中的heads和method参数】步骤，有哪些参数已经完成了解析：</p>
+<ul>
+<li>method（默认是GET）</li>
+<li>headers（默认大小为20）</li>
+</ul>
+<h4 id="1-2-调用url函数，构建HttpUrl结构，初始化Builder中的url参数"><a href="#1-2-调用url函数，构建HttpUrl结构，初始化Builder中的url参数" class="headerlink" title="1.2 调用url函数，构建HttpUrl结构，初始化Builder中的url参数"></a>1.2 调用url函数，构建HttpUrl结构，初始化Builder中的url参数</h4><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment">     * Sets the URL target of this request.</span></span><br><span class="line"><span class="comment">     *</span></span><br><span class="line"><span class="comment">     * <span class="doctag">@throws</span> IllegalArgumentException if &#123;<span class="doctag">@code</span> url&#125; is not a valid HTTP or HTTPS URL. Avoid this</span></span><br><span class="line"><span class="comment">     * exception by calling &#123;<span class="doctag">@link</span> HttpUrl#parse&#125;; it returns null for invalid URLs.</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> Builder <span class="title">url</span><span class="params">(String url)</span> </span>&#123;</span><br><span class="line">      <span class="keyword">if</span> (url == <span class="keyword">null</span>) <span class="keyword">throw</span> <span class="keyword">new</span> NullPointerException(<span class="string">"url == null"</span>);</span><br><span class="line"></span><br><span class="line">      <span class="comment">// Silently replace web socket URLs with HTTP URLs.</span></span><br><span class="line">      <span class="keyword">if</span> (url.regionMatches(<span class="keyword">true</span>, <span class="number">0</span>, <span class="string">"ws:"</span>, <span class="number">0</span>, <span class="number">3</span>)) &#123;</span><br><span class="line">        url = <span class="string">"http:"</span> + url.substring(<span class="number">3</span>);</span><br><span class="line">      &#125; <span class="keyword">else</span> <span class="keyword">if</span> (url.regionMatches(<span class="keyword">true</span>, <span class="number">0</span>, <span class="string">"wss:"</span>, <span class="number">0</span>, <span class="number">4</span>)) &#123;</span><br><span class="line">        url = <span class="string">"https:"</span> + url.substring(<span class="number">4</span>);</span><br><span class="line">      &#125;</span><br><span class="line"></span><br><span class="line">      HttpUrl parsed = HttpUrl.parse(url);</span><br><span class="line">      <span class="keyword">if</span> (parsed == <span class="keyword">null</span>) <span class="keyword">throw</span> <span class="keyword">new</span> IllegalArgumentException(<span class="string">"unexpected url: "</span> + url);</span><br><span class="line">      <span class="keyword">return</span> url(parsed);</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+<p>url函数中做了三件事：</p>
+<ul>
+<li>将Web Socket的URL转化为Http的URL</li>
+<li>构建HttpUrl结构</li>
+<li>用HttpUrl结构初始化Builder的url参数</li>
+</ul>
+<h5 id="1-2-1-将Web-Socket的URL转化为Http的URL"><a href="#1-2-1-将Web-Socket的URL转化为Http的URL" class="headerlink" title="1.2.1 将Web Socket的URL转化为Http的URL"></a>1.2.1 将Web Socket的URL转化为Http的URL</h5><p>首先有两个问题，Web Socket是什么？它的URL长什么样子？</p>
+<ul>
+<li>Web Socket是什么？</li>
+</ul>
+<p>Web Socket是一种在单个TCP连接上进行全双工通讯的协议，允许服务端主动向客户端推送数据。并且更神奇的是，Web Socket只需要一次握手，两者之间就可以直接建立起持久性的连接，并进行双向数据传输。<br>一次握手：浏览器发送请求，服务器做出回应，也就完成了握手过程。</p>
+<ul>
+<li>它的URL长什么样子？</li>
+</ul>
+<p>ws://example.com/wsapi<br>wss://secure.example.com/（基于TLS协议）<br>相当于Http协议中的http和https。</p>
+<h5 id="1-2-2-构建HttpUrl结构"><a href="#1-2-2-构建HttpUrl结构" class="headerlink" title="1.2.2 构建HttpUrl结构"></a>1.2.2 构建HttpUrl结构</h5><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">static</span> HttpUrl <span class="title">parse</span><span class="params">(String url)</span> </span>&#123;</span><br><span class="line">    Builder builder = <span class="keyword">new</span> Builder();</span><br><span class="line">    Builder.ParseResult result = builder.parse(<span class="keyword">null</span>, url);</span><br><span class="line">    <span class="keyword">return</span> result == Builder.ParseResult.SUCCESS ? builder.build() : <span class="keyword">null</span>;</span><br><span class="line">  &#125;</span><br></pre></td></tr></table></figure>
+<p>包含三个步骤：</p>
+<ul>
+<li>构造Builder对象</li>
+<li>构造Builder.ParseResult对象</li>
+<li>通过Builder构造HttpUrl对象</li>
+</ul>
+<h6 id="1-2-2-1-构造Builder对象"><a href="#1-2-2-1-构造Builder对象" class="headerlink" title="1.2.2.1 构造Builder对象"></a>1.2.2.1 构造Builder对象</h6><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="title">Builder</span><span class="params">()</span> </span>&#123;</span><br><span class="line">      encodedPathSegments.add(<span class="string">""</span>); <span class="comment">// The default path is '/' which needs a trailing space.</span></span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+<p>encodedPathSegements是一个ArrayList，用来记录整个url中的各个部分：<br><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">final</span> List&lt;String&gt; encodedPathSegments = <span class="keyword">new</span> ArrayList&lt;&gt;();</span><br></pre></td></tr></table></figure></p>
+<h6 id="1-2-2-2-构造Builder-ParseResult对象"><a href="#1-2-2-2-构造Builder-ParseResult对象" class="headerlink" title="1.2.2.2 构造Builder.ParseResult对象"></a>1.2.2.2 构造Builder.ParseResult对象</h6><p>HttpUrl.Builder.ParseResult的结构为：<br><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">enum</span> ParseResult &#123;</span><br><span class="line">      SUCCESS,</span><br><span class="line">      MISSING_SCHEME,</span><br><span class="line">      UNSUPPORTED_SCHEME,</span><br><span class="line">      INVALID_PORT,</span><br><span class="line">      INVALID_HOST,</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure></p>
+<p>构造ParseResult对象本质上是进一步填充第一步构造出来的Builder中的参数，<br>这个过程比较复杂，但是核心是做了以下几件事：</p>
+<ul>
+<li>过滤url中的前后空格</li>
+<li>设置Builder.scheme（http或者https）</li>
+<li>解析Builder.encodedUsername和Builder.encodedPassword</li>
+<li>解析Builder.host和Builder.port</li>
+<li>以 / 作为分界点分割从host和port之后并且在 ？或者# 之前的url字符串，将分割结果储存在Builder.encodePathSegments<div style="text-align: center"><br><img src="http://p1.bqimg.com/567571/764f0f1a4fa0d4ee.png"><br></div></li>
+<li><p>如果有 ？，那么解析后面的url，填充到encodedQueryNamesAndValues变量中（也是ArrayList），encodedQueryNamesAndValues中记录？后面的字符串是按照 key，value，key，value这种格式记录的。比如url = <a href="https://www.baidu.com/s?ie=utf-8&amp;f=8&amp;rsv_bp=0" target="_blank" rel="noopener">https://www.baidu.com/s?ie=utf-8&amp;f=8&amp;rsv_bp=0</a> ，解析出来的结构如下：</p>
+<div style="text-align: center"><br><img src="http://i1.piimg.com/567571/1598472a6b7fd68f.png"><br></div>
+</li>
+<li><p>如果有 # ，那么解析出来的结果放在encodedFragment变量中（String类型）</p>
+</li>
+<li>解析完毕</li>
+</ul>
+<h6 id="1-2-2-3-通过Builder构造HttpUrl对象"><a href="#1-2-2-3-通过Builder构造HttpUrl对象" class="headerlink" title="1.2.2.3 通过Builder构造HttpUrl对象"></a>1.2.2.3 通过Builder构造HttpUrl对象</h6><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> HttpUrl <span class="title">build</span><span class="params">()</span> </span>&#123;</span><br><span class="line">      <span class="keyword">if</span> (scheme == <span class="keyword">null</span>) <span class="keyword">throw</span> <span class="keyword">new</span> IllegalStateException(<span class="string">"scheme == null"</span>);</span><br><span class="line">      <span class="keyword">if</span> (host == <span class="keyword">null</span>) <span class="keyword">throw</span> <span class="keyword">new</span> IllegalStateException(<span class="string">"host == null"</span>);</span><br><span class="line">      <span class="keyword">return</span> <span class="keyword">new</span> HttpUrl(<span class="keyword">this</span>);</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">HttpUrl(Builder builder) &#123;</span><br><span class="line">    <span class="keyword">this</span>.scheme = builder.scheme;</span><br><span class="line">    <span class="keyword">this</span>.username = percentDecode(builder.encodedUsername, <span class="keyword">false</span>);</span><br><span class="line">    <span class="keyword">this</span>.password = percentDecode(builder.encodedPassword, <span class="keyword">false</span>);</span><br><span class="line">    <span class="keyword">this</span>.host = builder.host;</span><br><span class="line">    <span class="keyword">this</span>.port = builder.effectivePort();</span><br><span class="line">    <span class="keyword">this</span>.pathSegments = percentDecode(builder.encodedPathSegments, <span class="keyword">false</span>);</span><br><span class="line">    <span class="keyword">this</span>.queryNamesAndValues = builder.encodedQueryNamesAndValues != <span class="keyword">null</span></span><br><span class="line">        ? percentDecode(builder.encodedQueryNamesAndValues, <span class="keyword">true</span>)</span><br><span class="line">        : <span class="keyword">null</span>;</span><br><span class="line">    <span class="keyword">this</span>.fragment = builder.encodedFragment != <span class="keyword">null</span></span><br><span class="line">        ? percentDecode(builder.encodedFragment, <span class="keyword">false</span>)</span><br><span class="line">        : <span class="keyword">null</span>;</span><br><span class="line">    <span class="keyword">this</span>.url = builder.toString();</span><br><span class="line">  &#125;</span><br></pre></td></tr></table></figure>
+<p>builder.toString()函数就是把分割出来的东西重新组装成一个String返回。<br><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Override</span> <span class="function"><span class="keyword">public</span> String <span class="title">toString</span><span class="params">()</span> </span>&#123;</span><br><span class="line">      StringBuilder result = <span class="keyword">new</span> StringBuilder();</span><br><span class="line">      result.append(scheme);</span><br><span class="line">      result.append(<span class="string">"://"</span>);</span><br><span class="line"></span><br><span class="line">      <span class="keyword">if</span> (!encodedUsername.isEmpty() || !encodedPassword.isEmpty()) &#123;</span><br><span class="line">        result.append(encodedUsername);</span><br><span class="line">        <span class="keyword">if</span> (!encodedPassword.isEmpty()) &#123;</span><br><span class="line">          result.append(<span class="string">':'</span>);</span><br><span class="line">          result.append(encodedPassword);</span><br><span class="line">        &#125;</span><br><span class="line">        result.append(<span class="string">'@'</span>);</span><br><span class="line">      &#125;</span><br><span class="line"></span><br><span class="line">      <span class="keyword">if</span> (host.indexOf(<span class="string">':'</span>) != -<span class="number">1</span>) &#123;</span><br><span class="line">        <span class="comment">// Host is an IPv6 address.</span></span><br><span class="line">        result.append(<span class="string">'['</span>);</span><br><span class="line">        result.append(host);</span><br><span class="line">        result.append(<span class="string">']'</span>);</span><br><span class="line">      &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        result.append(host);</span><br><span class="line">      &#125;</span><br><span class="line"></span><br><span class="line">      <span class="keyword">int</span> effectivePort = effectivePort();</span><br><span class="line">      <span class="keyword">if</span> (effectivePort != defaultPort(scheme)) &#123;</span><br><span class="line">        result.append(<span class="string">':'</span>);</span><br><span class="line">        result.append(effectivePort);</span><br><span class="line">      &#125;</span><br><span class="line"></span><br><span class="line">      pathSegmentsToString(result, encodedPathSegments);</span><br><span class="line"></span><br><span class="line">      <span class="keyword">if</span> (encodedQueryNamesAndValues != <span class="keyword">null</span>) &#123;</span><br><span class="line">        result.append(<span class="string">'?'</span>);</span><br><span class="line">        namesAndValuesToQueryString(result, encodedQueryNamesAndValues);</span><br><span class="line">      &#125;</span><br><span class="line"></span><br><span class="line">      <span class="keyword">if</span> (encodedFragment != <span class="keyword">null</span>) &#123;</span><br><span class="line">        result.append(<span class="string">'#'</span>);</span><br><span class="line">        result.append(encodedFragment);</span><br><span class="line">      &#125;</span><br><span class="line"></span><br><span class="line">      <span class="keyword">return</span> result.toString();</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure></p>
+<h5 id="1-2-3-用HttpUrl结构初始化Builder的url参数"><a href="#1-2-3-用HttpUrl结构初始化Builder的url参数" class="headerlink" title="1.2.3 用HttpUrl结构初始化Builder的url参数"></a>1.2.3 用HttpUrl结构初始化Builder的url参数</h5><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">//Request.Builder</span></span><br><span class="line"><span class="function"><span class="keyword">public</span> Builder <span class="title">url</span><span class="params">(HttpUrl url)</span> </span>&#123;</span><br><span class="line">      <span class="keyword">if</span> (url == <span class="keyword">null</span>) <span class="keyword">throw</span> <span class="keyword">new</span> NullPointerException(<span class="string">"url == null"</span>);</span><br><span class="line">      <span class="keyword">this</span>.url = url;</span><br><span class="line">      <span class="keyword">return</span> <span class="keyword">this</span>;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+<p>总结一下，通过【2. 调用url函数，构建HttpUrl结构，初始化Builder中的url参数】这一步骤，<br>Builder中有哪些参数完成了解析：</p>
+<ul>
+<li>scheme（http或者https）</li>
+<li>username（如果有的话）</li>
+<li>password（如果有的话）</li>
+<li>host（主机名，也就是 <a href="http://www.xxx.com）" target="_blank" rel="noopener">www.xxx.com）</a></li>
+<li>port（如果有设定特定端口号的话，如果没有，http默认是80，https默认是443，否则为-1）</li>
+<li>pathSegements（从port之后，在？之前的字段）</li>
+<li>queryNamesAndValues（？之后，保存方式是key，value，key，value…..）</li>
+<li>fragment（#之后，解析出String）</li>
+<li>url（也就是原始的url字符串，这里是通过builder.toString()重新组装得到的）</li>
+</ul>
+<h4 id="1-3-调用builder函数，使用Builder构建Request对象"><a href="#1-3-调用builder函数，使用Builder构建Request对象" class="headerlink" title="1.3 调用builder函数，使用Builder构建Request对象"></a>1.3 调用builder函数，使用Builder构建Request对象</h4><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> Request <span class="title">build</span><span class="params">()</span> </span>&#123;</span><br><span class="line">      <span class="keyword">if</span> (url == <span class="keyword">null</span>) <span class="keyword">throw</span> <span class="keyword">new</span> IllegalStateException(<span class="string">"url == null"</span>);</span><br><span class="line">      <span class="keyword">return</span> <span class="keyword">new</span> Request(<span class="keyword">this</span>);</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">Request(Builder builder) &#123;</span><br><span class="line">    <span class="keyword">this</span>.url = builder.url;</span><br><span class="line">    <span class="keyword">this</span>.method = builder.method;</span><br><span class="line">    <span class="keyword">this</span>.headers = builder.headers.build();</span><br><span class="line">    <span class="keyword">this</span>.body = builder.body;</span><br><span class="line">    <span class="keyword">this</span>.tag = builder.tag != <span class="keyword">null</span> ? builder.tag : <span class="keyword">this</span>;</span><br><span class="line">  &#125;</span><br></pre></td></tr></table></figure>
+<p>总结一下，通过【1.3 调用builder函数，使用Builder构建Request对象】，将builder中的参数复制到Request中：</p>
+<ul>
+<li>url（在②中完成解析，也就是builder的HttpUrl结构）</li>
+<li>scheme（http或者https）</li>
+<li>username（如果有的话）</li>
+<li>password（如果有的话）</li>
+<li>host（主机名，也就是<a href="http://www.xxx.com）" target="_blank" rel="noopener">www.xxx.com）</a></li>
+<li>port（如果有设定特定端口号的话，如果没有，http默认是80，https默认是443，否则为-1）</li>
+<li>pathSegements（从port之后，在？之前的字段）</li>
+<li>queryNamesAndValues（？之后，保存方式是key，value，key，value。。。）</li>
+<li>fragment（#之后，解析出String）</li>
+<li>url（也就是原始的url字符串，这里是通过builder.toString()重新组装得到的）</li>
+<li>method（在①中默认是GET）</li>
+<li>headers（在①中默认大小为20，尚未添加数据）</li>
+<li>body（在①中尚未初始化）</li>
+<li>tag（在①中尚未初始化）</li>
+</ul>
+<p>再搞清楚内部的逻辑关系:<br>Request通过Request.Builder构造，而Request.Builder内部需要一个HttpUrl结构。<br>HttpUrl结构内部也是通过Builder设计模式，采用构造HttpUrl.Builder结构，在HttpUrl.Builder中解析出了众多参数，再通过build函数将这些参数赋予HttpUrl结构。<br>Request.Builder中的HttpUrl结构构造完毕后，就设置Request.Builder.url = url（HttpUrl），最终通过build函数获得最终的Request结构。</p>
+<h3 id="2-发送请求"><a href="#2-发送请求" class="headerlink" title="2. 发送请求"></a>2. 发送请求</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">Response response = okHttpClient.newCall(request).execute()</span><br></pre></td></tr></table></figure>
+<p>这里主要分为两步：  </p>
+<ul>
+<li>构造Call对象  </li>
+<li>执行Request</li>
+</ul>
+<h4 id="2-1-构造Call对象"><a href="#2-1-构造Call对象" class="headerlink" title="2.1 构造Call对象"></a>2.1 构造Call对象</h4><p>okHttpClient.newCall(request)调用OkHttpClient.newCall函数：<br><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Override</span> <span class="function"><span class="keyword">public</span> Call <span class="title">newCall</span><span class="params">(Request request)</span> </span>&#123;</span><br><span class="line">    <span class="keyword">return</span> <span class="keyword">new</span> RealCall(<span class="keyword">this</span>, request, <span class="keyword">false</span> <span class="comment">/* for web socket */</span>);</span><br><span class="line">  &#125;</span><br></pre></td></tr></table></figure></p>
+<p>本质上得到的是RealCall结构：<br><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">RealCall(OkHttpClient client, Request originalRequest, <span class="keyword">boolean</span> forWebSocket) &#123;</span><br><span class="line">    <span class="keyword">this</span>.client = client;</span><br><span class="line">    <span class="keyword">this</span>.originalRequest = originalRequest;</span><br><span class="line">    <span class="keyword">this</span>.forWebSocket = forWebSocket;</span><br><span class="line">    <span class="keyword">this</span>.retryAndFollowUpInterceptor = <span class="keyword">new</span> RetryAndFollowUpInterceptor(client, forWebSocket);</span><br><span class="line">  &#125;</span><br></pre></td></tr></table></figure></p>
+<p>RealCall数据结构：</p>
+<table>
+<thead>
+<tr>
+<th>变量</th>
+<th>类型</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>client</td>
+<td>final OkHttpClient</td>
+</tr>
+<tr>
+<td>retryAndFollowUpInterceptor</td>
+<td>final RetryAndFollowUpInterceptor</td>
+</tr>
+<tr>
+<td>originalRequest</td>
+<td>final Request</td>
+</tr>
+<tr>
+<td>forWebSocket</td>
+<td>final boolean</td>
+</tr>
+<tr>
+<td>executed</td>
+<td>boolean</td>
+</tr>
+</tbody>
+</table>
+<p>注意到RealCall构造函数中初始化了一个拦截器：retryAndFollowUpInterceptor拦截器。<br><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="title">RetryAndFollowUpInterceptor</span><span class="params">(OkHttpClient client, <span class="keyword">boolean</span> forWebSocket)</span> </span>&#123;</span><br><span class="line">    <span class="keyword">this</span>.client = client;</span><br><span class="line">    <span class="keyword">this</span>.forWebSocket = forWebSocket;</span><br><span class="line">  &#125;</span><br></pre></td></tr></table></figure></p>
+<p>所以，在2.1中，构造了一个RealCall数据结构，并且在RealCall内部记录了调用的okHttpClient以及request，并且初始化了RetryAndFollowUpInterceptor拦截器（记录了okHttpClient以及forWebSocket参数）</p>
+<h4 id="2-2-发送请求"><a href="#2-2-发送请求" class="headerlink" title="2.2 发送请求"></a>2.2 发送请求</h4><p>发送请求主要调用的是Call.execute函数，因为这里Call对象是RealCall类型，因此调用的是RealCall.execute函数。<br>execute函数：<br><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Override</span> <span class="function"><span class="keyword">public</span> Response <span class="title">execute</span><span class="params">()</span> <span class="keyword">throws</span> IOException </span>&#123;</span><br><span class="line">    <span class="keyword">synchronized</span> (<span class="keyword">this</span>) &#123;</span><br><span class="line">      <span class="keyword">if</span> (executed) <span class="keyword">throw</span> <span class="keyword">new</span> IllegalStateException(<span class="string">"Already Executed"</span>);</span><br><span class="line">      executed = <span class="keyword">true</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    captureCallStackTrace();</span><br><span class="line">    <span class="keyword">try</span> &#123;</span><br><span class="line">      client.dispatcher().executed(<span class="keyword">this</span>);</span><br><span class="line">      Response result = getResponseWithInterceptorChain();</span><br><span class="line">      <span class="keyword">if</span> (result == <span class="keyword">null</span>) <span class="keyword">throw</span> <span class="keyword">new</span> IOException(<span class="string">"Canceled"</span>);</span><br><span class="line">      <span class="keyword">return</span> result;</span><br><span class="line">    &#125; <span class="keyword">finally</span> &#123;</span><br><span class="line">      client.dispatcher().finished(<span class="keyword">this</span>);</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br></pre></td></tr></table></figure></p>
+<p>execute函数主要有三步</p>
+<ul>
+<li>设置debug相关参数</li>
+<li>将RealCall添加到Dispatcher调度器中</li>
+<li>通过责任链消化request，返回结果</li>
+<li>从OkHttpClient的Dispatcher中移除已经处理完毕的当前request</li>
+</ul>
+<p>因为debug步骤我们不关心，所以只看后面三步。</p>
+<h5 id="2-2-1-将RealCall添加到Dispatcher调度器中"><a href="#2-2-1-将RealCall添加到Dispatcher调度器中" class="headerlink" title="2.2.1 将RealCall添加到Dispatcher调度器中"></a>2.2.1 将RealCall添加到Dispatcher调度器中</h5><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">client.dispatcher().executed(<span class="keyword">this</span>);<span class="comment">//this是RealCall</span></span><br></pre></td></tr></table></figure>
+<p>内部封装了request，这里分为两步：</p>
+<ul>
+<li>获得dispatcher</li>
+<li>将realCall添加到dispatcher中的队列中</li>
+</ul>
+<h6 id="2-2-1-1-获得dispatcher"><a href="#2-2-1-1-获得dispatcher" class="headerlink" title="2.2.1.1 获得dispatcher"></a>2.2.1.1 获得dispatcher</h6><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> Dispatcher <span class="title">dispatcher</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="keyword">return</span> dispatcher;</span><br><span class="line">  &#125;</span><br></pre></td></tr></table></figure>
+<p>那这个dispatcher是在哪里初始化设置的呢？<br>在OkHttpClient的构造函数中：<br><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">this</span>.dispatcher = builder.dispatcher;</span><br></pre></td></tr></table></figure></p>
+<p>而因为我们一开始创建OkHttpClient对象是通过OkHttpClient c = new OkHttpClient()创建的，因此调用的是以下的构造函数:<br><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="title">OkHttpClient</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="keyword">this</span>(<span class="keyword">new</span> Builder());</span><br><span class="line">  &#125;</span><br></pre></td></tr></table></figure></p>
+<p>也就是说dispatcher是在OkHttpClient.Builder的构造函数中初始化的。<br>在OkHttpClient.Builder构造函数中有这么一句：<br><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">dispatcher = <span class="keyword">new</span> Dispatcher();</span><br></pre></td></tr></table></figure></p>
+<p>可以看到OkHttpClient的dispatcher是Builder内部通过直接new构造出来的，而Dispatcher构造函数是一个空实现，内部什么也没有。<br><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="title">Dispatcher</span><span class="params">()</span> </span>&#123;</span><br><span class="line">  &#125;</span><br></pre></td></tr></table></figure></p>
+<p>那么就来看Dispatcher内部有什么属性？<br><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">private</span> <span class="keyword">int</span> maxRequests = <span class="number">64</span>;</span><br><span class="line"><span class="keyword">private</span> <span class="keyword">int</span> maxRequestsPerHost = <span class="number">5</span>;</span><br><span class="line"><span class="keyword">private</span> Runnable idleCallback;</span><br><span class="line"></span><br><span class="line"><span class="comment">/** Executes calls. Created lazily. */</span></span><br><span class="line"><span class="keyword">private</span> ExecutorService executorService;</span><br><span class="line"></span><br><span class="line"><span class="comment">/** Ready async calls in the order they'll be run. */</span></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">final</span> Deque&lt;AsyncCall&gt; readyAsyncCalls = <span class="keyword">new</span> ArrayDeque&lt;&gt;();</span><br><span class="line"></span><br><span class="line"><span class="comment">/** Running asynchronous calls. Includes canceled calls that haven't finished yet. */</span></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">final</span> Deque&lt;AsyncCall&gt; runningAsyncCalls = <span class="keyword">new</span> ArrayDeque&lt;&gt;();</span><br><span class="line"></span><br><span class="line"><span class="comment">/** Running synchronous calls. Includes canceled calls that haven't finished yet. */</span></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">final</span> Deque&lt;RealCall&gt; runningSyncCalls = <span class="keyword">new</span> ArrayDeque&lt;&gt;();</span><br></pre></td></tr></table></figure></p>
+<p>从上面可以得出以下几点信息：<br>I 一个Dispatcher最多能够处理64个请求，并且每个域名最多只能有5个请求<br>II 内部有三个Deque队列，两个是为异步请求设置的（readyAsyncCalls，runningAsyncCalls），一               个是为同步请求设置的（runningSyncCalls）</p>
+<p>所以【2.2.1.1 获得dispatcher】步骤实际上是获得一个OkHttpClient的dispatcher，而OkHttpClient的dispatcher是通过Builder内部new一个出来的。</p>
+<h5 id="2-2-2-2-将realCall添加到dispatcher中的队列中"><a href="#2-2-2-2-将realCall添加到dispatcher中的队列中" class="headerlink" title="2.2.2.2 将realCall添加到dispatcher中的队列中"></a>2.2.2.2 将realCall添加到dispatcher中的队列中</h5><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">synchronized</span> <span class="keyword">void</span> <span class="title">executed</span><span class="params">(RealCall call)</span> </span>&#123;</span><br><span class="line">    runningSyncCalls.add(call);</span><br><span class="line">  &#125;</span><br></pre></td></tr></table></figure>
+<p>因为在a中Dispatcher已经将runningSyncCalls初始化了，所以这里直接将call添加到runningSyncCalls队列中。<br>从这里可以看出，通过应用层的execute函数执行的请求实际上是以同步方式执行的。</p>
+<h5 id="2-2-2-3-通过责任链消化request，返回结果"><a href="#2-2-2-3-通过责任链消化request，返回结果" class="headerlink" title="2.2.2.3 通过责任链消化request，返回结果"></a>2.2.2.3 通过责任链消化request，返回结果</h5><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">Response result = getResponseWithInterceptorChain();<span class="comment">//这个是整个调用过程的核心</span></span><br></pre></td></tr></table></figure>
+<p>RealCall.getResponseWithInterceptorChain()函数：<br><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">Response <span class="title">getResponseWithInterceptorChain</span><span class="params">()</span> <span class="keyword">throws</span> IOException </span>&#123;</span><br><span class="line">    <span class="comment">// Build a full stack of interceptors.</span></span><br><span class="line">    List&lt;Interceptor&gt; interceptors = <span class="keyword">new</span> ArrayList&lt;&gt;();</span><br><span class="line">    interceptors.addAll(client.interceptors());</span><br><span class="line">    interceptors.add(retryAndFollowUpInterceptor);</span><br><span class="line">    interceptors.add(<span class="keyword">new</span> BridgeInterceptor(client.cookieJar()));</span><br><span class="line">    interceptors.add(<span class="keyword">new</span> CacheInterceptor(client.internalCache()));</span><br><span class="line">    interceptors.add(<span class="keyword">new</span> ConnectInterceptor(client));</span><br><span class="line">    <span class="keyword">if</span> (!forWebSocket) &#123;</span><br><span class="line">      interceptors.addAll(client.networkInterceptors());</span><br><span class="line">    &#125;</span><br><span class="line">    interceptors.add(<span class="keyword">new</span> CallServerInterceptor(forWebSocket));</span><br><span class="line"></span><br><span class="line">    Interceptor.Chain chain = <span class="keyword">new</span> RealInterceptorChain(</span><br><span class="line">        interceptors, <span class="keyword">null</span>, <span class="keyword">null</span>, <span class="keyword">null</span>, <span class="number">0</span>, originalRequest);</span><br><span class="line">    <span class="keyword">return</span> chain.proceed(originalRequest);</span><br><span class="line">  &#125;</span><br></pre></td></tr></table></figure></p>
+<p> 整个责任链模式在这个函数中得到充分体现：</p>
+<ul>
+<li>构造List数组interceptors</li>
+<li>添加okHttpClient的所有已有的拦截器（默认为size = 0）</li>
+<li>添加retryAndFollowUpInterceptor</li>
+<li>添加BridgeInterceptor</li>
+<li>添加CacheInterceptor</li>
+<li>添加ConnectInterceptor</li>
+<li>如果不是web socket，那么添加okHttpClient的所有networkInterceptors（用户自定义的Interceptors，默认为size = 0）</li>
+<li>添加CallServerInterceptor</li>
+<li>构建责任链RealInterceptorChain</li>
+<li>将原始的请求originalRequest交给责任链消化</li>
+</ul>
+<p>这里面有2个问题亟待解决：</p>
+<ul>
+<li>每个拦截器的作用是什么？</li>
+<li>责任链是怎么将请求逐步分发给责任链中的每一环的？</li>
+</ul>
+<h5 id="2-2-2-3-1-每个拦截器的作用是什么？"><a href="#2-2-2-3-1-每个拦截器的作用是什么？" class="headerlink" title="2.2.2.3.1 每个拦截器的作用是什么？"></a>2.2.2.3.1 每个拦截器的作用是什么？</h5><div style="text-align: center"><br><img src="http://p1.bpimg.com/567571/548e46f32afed5ae.png"><br></div>
+
+<h5 id="2-2-2-3-2-责任链是怎么将请求逐步分发给责任链中的每一环的？"><a href="#2-2-2-3-2-责任链是怎么将请求逐步分发给责任链中的每一环的？" class="headerlink" title="2.2.2.3.2 责任链是怎么将请求逐步分发给责任链中的每一环的？"></a>2.2.2.3.2 责任链是怎么将请求逐步分发给责任链中的每一环的？</h5><p>通过interceptors构建整条责任链上的拦截器后，通过两个步骤来分发request。<br>I、构造责任链<br>II、分发request</p>
+<p>I、构造责任链<br><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">Interceptor.Chain chain = <span class="keyword">new</span> RealInterceptorChain(</span><br><span class="line">        interceptors, <span class="keyword">null</span>, <span class="keyword">null</span>, <span class="keyword">null</span>, <span class="number">0</span>, originalRequest);</span><br></pre></td></tr></table></figure></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="title">RealInterceptorChain</span><span class="params">(List&lt;Interceptor&gt; interceptors, StreamAllocation streamAllocation,</span></span></span><br><span class="line"><span class="function"><span class="params">      HttpCodec httpCodec, Connection connection, <span class="keyword">int</span> index, Request request)</span> </span>&#123;</span><br><span class="line">    <span class="keyword">this</span>.interceptors = interceptors;</span><br><span class="line">    <span class="keyword">this</span>.connection = connection;</span><br><span class="line">    <span class="keyword">this</span>.streamAllocation = streamAllocation;</span><br><span class="line">    <span class="keyword">this</span>.httpCodec = httpCodec;</span><br><span class="line">    <span class="keyword">this</span>.index = index;</span><br><span class="line">    <span class="keyword">this</span>.request = request;</span><br><span class="line">  &#125;</span><br></pre></td></tr></table></figure>
+<p>II、分发request<br><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">return</span> chain.proceed(originalRequest);</span><br></pre></td></tr></table></figure></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Override</span> <span class="function"><span class="keyword">public</span> Response <span class="title">proceed</span><span class="params">(Request request)</span> <span class="keyword">throws</span> IOException </span>&#123;</span><br><span class="line">   <span class="keyword">return</span> proceed(request, streamAllocation, httpCodec, connection);</span><br><span class="line"> &#125;</span><br></pre></td></tr></table></figure>
+<p>注意到这里的streamAllocation，httpCodec，connection都为null。<br><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> Response <span class="title">proceed</span><span class="params">(Request request, StreamAllocation streamAllocation, HttpCodec httpCodec,</span></span></span><br><span class="line"><span class="function"><span class="params">      Connection connection)</span> <span class="keyword">throws</span> IOException </span>&#123;</span><br><span class="line">    <span class="keyword">if</span> (index &gt;= interceptors.size()) <span class="keyword">throw</span> <span class="keyword">new</span> AssertionError();</span><br><span class="line"></span><br><span class="line">    calls++;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// If we already have a stream, confirm that the incoming request will use it.</span></span><br><span class="line">    <span class="keyword">if</span> (<span class="keyword">this</span>.httpCodec != <span class="keyword">null</span> &amp;&amp; !sameConnection(request.url())) &#123;</span><br><span class="line">      <span class="keyword">throw</span> <span class="keyword">new</span> IllegalStateException(<span class="string">"network interceptor "</span> + interceptors.get(index - <span class="number">1</span>)</span><br><span class="line">          + <span class="string">" must retain the same host and port"</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// If we already have a stream, confirm that this is the only call to chain.proceed().</span></span><br><span class="line">    <span class="keyword">if</span> (<span class="keyword">this</span>.httpCodec != <span class="keyword">null</span> &amp;&amp; calls &gt; <span class="number">1</span>) &#123;</span><br><span class="line">      <span class="keyword">throw</span> <span class="keyword">new</span> IllegalStateException(<span class="string">"network interceptor "</span> + interceptors.get(index - <span class="number">1</span>)</span><br><span class="line">          + <span class="string">" must call proceed() exactly once"</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// Call the next interceptor in the chain.</span></span><br><span class="line">    RealInterceptorChain next = <span class="keyword">new</span> RealInterceptorChain(</span><br><span class="line">        interceptors, streamAllocation, httpCodec, connection, index + <span class="number">1</span>, request);</span><br><span class="line">    Interceptor interceptor = interceptors.get(index);</span><br><span class="line">    Response response = interceptor.intercept(next);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// Confirm that the next interceptor made its required call to chain.proceed().</span></span><br><span class="line">    <span class="keyword">if</span> (httpCodec != <span class="keyword">null</span> &amp;&amp; index + <span class="number">1</span> &lt; interceptors.size() &amp;&amp; next.calls != <span class="number">1</span>) &#123;</span><br><span class="line">      <span class="keyword">throw</span> <span class="keyword">new</span> IllegalStateException(<span class="string">"network interceptor "</span> + interceptor</span><br><span class="line">          + <span class="string">" must call proceed() exactly once"</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// Confirm that the intercepted response isn't null.</span></span><br><span class="line">    <span class="keyword">if</span> (response == <span class="keyword">null</span>) &#123;</span><br><span class="line">      <span class="keyword">throw</span> <span class="keyword">new</span> NullPointerException(<span class="string">"interceptor "</span> + interceptor + <span class="string">" returned null"</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> response;</span><br><span class="line">  &#125;</span><br></pre></td></tr></table></figure></p>
+<p>proceed函数主要做了以下5件事：</p>
+<ul>
+<li>检查上一个拦截器传递过来的httpCodec是否为null，如果不为null，那么当前的RealInterceptorChain的HttpUrl中的host和port必须和当前的request一致，否则说明上一个拦截器修改了host和port，出错处理</li>
+<li>确认当前的RealInterceptorChain的proceed函数只被调用一次，否则出错处理</li>
+<li>构造下一条RealInterceptorChain链</li>
+<li>获得当前的拦截器，调用该拦截器的interceptor函数</li>
+<li>返回response</li>
+</ul>
+<p>核心的过程是第四步，因此着重分析第四步。<br>Interceptor interceptor = interceptors.get(index);<br>Response response = interceptor.intercept(next);</p>
+<p>I：RetryAndFollowUpInterceptor拦截器<br>一开始的index为0，所以获得的是RetryAndFollowUpInterceptor，因此调用的是RetryAndFollowUpInterceptor中的interceptor函数。<br><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Override</span> <span class="function"><span class="keyword">public</span> Response <span class="title">intercept</span><span class="params">(Chain chain)</span> <span class="keyword">throws</span> IOException </span>&#123;</span><br><span class="line">    Request request = chain.request();</span><br><span class="line"></span><br><span class="line">    streamAllocation = <span class="keyword">new</span> StreamAllocation(</span><br><span class="line">        client.connectionPool(), createAddress(request.url()), callStackTrace);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">int</span> followUpCount = <span class="number">0</span>;</span><br><span class="line">    Response priorResponse = <span class="keyword">null</span>;</span><br><span class="line">    <span class="keyword">while</span> (<span class="keyword">true</span>) &#123;</span><br><span class="line">      <span class="keyword">if</span> (canceled) &#123;</span><br><span class="line">        streamAllocation.release();</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> IOException(<span class="string">"Canceled"</span>);</span><br><span class="line">      &#125;</span><br><span class="line"></span><br><span class="line">      Response response = <span class="keyword">null</span>;</span><br><span class="line">      <span class="keyword">boolean</span> releaseConnection = <span class="keyword">true</span>;</span><br><span class="line">      <span class="keyword">try</span> &#123;</span><br><span class="line">        response = ((RealInterceptorChain) chain).proceed(request, streamAllocation, <span class="keyword">null</span>, <span class="keyword">null</span>);</span><br><span class="line">        releaseConnection = <span class="keyword">false</span>;</span><br><span class="line">      &#125; <span class="keyword">catch</span> (RouteException e) &#123;</span><br><span class="line">        <span class="comment">// The attempt to connect via a route failed. The request will not have been sent.</span></span><br><span class="line">        <span class="keyword">if</span> (!recover(e.getLastConnectException(), <span class="keyword">false</span>, request)) &#123;</span><br><span class="line">          <span class="keyword">throw</span> e.getLastConnectException();</span><br><span class="line">        &#125;</span><br><span class="line">        releaseConnection = <span class="keyword">false</span>;</span><br><span class="line">        <span class="keyword">continue</span>;</span><br><span class="line">      &#125; <span class="keyword">catch</span> (IOException e) &#123;</span><br><span class="line">        <span class="comment">// An attempt to communicate with a server failed. The request may have been sent.</span></span><br><span class="line">        <span class="keyword">boolean</span> requestSendStarted = !(e <span class="keyword">instanceof</span> ConnectionShutdownException);</span><br><span class="line">        <span class="keyword">if</span> (!recover(e, requestSendStarted, request)) <span class="keyword">throw</span> e;</span><br><span class="line">        releaseConnection = <span class="keyword">false</span>;</span><br><span class="line">        <span class="keyword">continue</span>;</span><br><span class="line">      &#125; <span class="keyword">finally</span> &#123;</span><br><span class="line">        <span class="comment">// We're throwing an unchecked exception. Release any resources.</span></span><br><span class="line">        <span class="keyword">if</span> (releaseConnection) &#123;</span><br><span class="line">          streamAllocation.streamFailed(<span class="keyword">null</span>);</span><br><span class="line">          streamAllocation.release();</span><br><span class="line">        &#125;</span><br><span class="line">      &#125;</span><br><span class="line"></span><br><span class="line">      <span class="comment">// Attach the prior response if it exists. Such responses never have a body.</span></span><br><span class="line">      <span class="keyword">if</span> (priorResponse != <span class="keyword">null</span>) &#123;</span><br><span class="line">        response = response.newBuilder()</span><br><span class="line">            .priorResponse(priorResponse.newBuilder()</span><br><span class="line">                    .body(<span class="keyword">null</span>)</span><br><span class="line">                    .build())</span><br><span class="line">            .build();</span><br><span class="line">      &#125;</span><br><span class="line"></span><br><span class="line">      Request followUp = followUpRequest(response);</span><br><span class="line"></span><br><span class="line">      <span class="keyword">if</span> (followUp == <span class="keyword">null</span>) &#123;</span><br><span class="line">        <span class="keyword">if</span> (!forWebSocket) &#123;</span><br><span class="line">          streamAllocation.release();</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> response;</span><br><span class="line">      &#125;</span><br><span class="line"></span><br><span class="line">      closeQuietly(response.body());</span><br><span class="line"></span><br><span class="line">      <span class="keyword">if</span> (++followUpCount &gt; MAX_FOLLOW_UPS) &#123;</span><br><span class="line">        streamAllocation.release();</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> ProtocolException(<span class="string">"Too many follow-up requests: "</span> + followUpCount);</span><br><span class="line">      &#125;</span><br><span class="line"></span><br><span class="line">      <span class="keyword">if</span> (followUp.body() <span class="keyword">instanceof</span> UnrepeatableRequestBody) &#123;</span><br><span class="line">        streamAllocation.release();</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> HttpRetryException(<span class="string">"Cannot retry streamed HTTP body"</span>, response.code());</span><br><span class="line">      &#125;</span><br><span class="line"></span><br><span class="line">      <span class="keyword">if</span> (!sameConnection(response, followUp.url())) &#123;</span><br><span class="line">        streamAllocation.release();</span><br><span class="line">        streamAllocation = <span class="keyword">new</span> StreamAllocation(</span><br><span class="line">            client.connectionPool(), createAddress(followUp.url()), callStackTrace);</span><br><span class="line">      &#125; <span class="keyword">else</span> <span class="keyword">if</span> (streamAllocation.codec() != <span class="keyword">null</span>) &#123;</span><br><span class="line">        <span class="keyword">throw</span> <span class="keyword">new</span> IllegalStateException(<span class="string">"Closing the body of "</span> + response</span><br><span class="line">            + <span class="string">" didn't close its backing stream. Bad interceptor?"</span>);</span><br><span class="line">      &#125;</span><br><span class="line"></span><br><span class="line">      request = followUp;</span><br><span class="line">      priorResponse = response;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br></pre></td></tr></table></figure></p>
+<p>RetryAndFollowUpInterceptor中的interceptor函数主要做了以下几件事：  </p>
+<ul>
+<li>获得request</li>
+<li>构造StreamAllocation</li>
+<li>进入while（true）循环</li>
+<li>调用下一个RealInterceptorChain的proceed函数（也就是一开始传入来的next，其实就是index发生改变）</li>
+<li>response返回后根据response决定是否要进行重定向或者重传</li>
+</ul>
+<p><strong>立flag：RetryAndFollowUpInterceptor的重定向和重传技术等到后面整条链走完后再讲</strong>。</p>
+<p>II：BridgeInterceptor拦截器<br>RetryAndFollowUpInterceptor的第四步就是调用下一个调用下一个RealInterceptorChain的proceed函数。proceed函数在前面讲过了，它会调用index的interceptor的intercept函数，在这里也就是BridgeInterceptor的intercept函数。</p>
+
+
+                <hr>
+
+                
+
+                <ul class="pager">
+                    
+                        <li class="previous">
+                            <a href="/2017/02/25/View-draw-详述/" data-toggle="tooltip" data-placement="top" title="View.draw()详述">&larr; Previous Post</a>
+                        </li>
+                    
+                    
+                        <li class="next">
+                            <a href="/2017/02/23/View-layout-详述/" data-toggle="tooltip" data-placement="top" title="View.layout()详述">Next Post &rarr;</a>
+                        </li>
+                    
+                </ul>
+
+                
+
+                
+
+            </div>
+    <!-- Side Catalog Container -->
+        
+
+    <!-- Sidebar Container -->
+
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                <!-- Featured Tags -->
+                
+                <section>
+                    <!-- no hr -->
+                    <h5><a href="/tags/">FEATURED TAGS</a></h5>
+                    <div class="tags">
+                       
+                          <a class="tag" href="/tags/#项目深化" title="项目深化">项目深化</a>
+                        
+                    </div>
+                </section>
+                
+
+                <!-- Friends Blog -->
+                
+                <hr>
+                <h5>FRIENDS</h5>
+                <ul class="list-inline">
+
+                    
+                        <li><a href="http://www.alloyteam.com" target="_blank">腾讯全端AlloyTeam团队Blog</a></li>
+                    
+                        <li><a href="http://tech.meituan.com" target="_blank">美团点评技术团队</a></li>
+                    
+                        <li><a href="https://www.diycode.cc" target="_blank">diycode</a></li>
+                    
+                        <li><a href="http://gityuan.com" target="_blank">gityuan</a></li>
+                    
+                        <li><a href="https://blog.piasy.com" target="_blank">Piasy</a></li>
+                    
+                </ul>
+                
+            </div>
+
+        </div>
+    </div>
+</article>
+
+
+
+
+
+
+
+<!-- async load function -->
+<script>
+    function async(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+<!-- anchor-js, Doc:http://bryanbraun.github.io/anchorjs/ -->
+<script>
+    async("https://cdn.bootcss.com/anchor-js/1.1.1/anchor.min.js",function(){
+        anchors.options = {
+          visible: 'always',
+          placement: 'right',
+          icon: '#'
+        };
+        anchors.add().remove('.intro-header h1').remove('.subheading').remove('.sidebar-container h5');
+    })
+</script>
+<style>
+    /* place left on bigger screen */
+    @media all and (min-width: 800px) {
+        .anchorjs-link{
+            position: absolute;
+            left: -0.75em;
+            font-size: 1.1em;
+            margin-top : -0.1em;
+        }
+    }
+</style>
+
+
+
+    <!-- Footer -->
+    <!-- Footer -->
+<footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">
+                
+                
+                
+
+                
+
+                
+
+                
+                    <li>
+                        <a target="_blank" href="https://github.com/peibinchen">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+                
+
+                
+
+                </ul>
+                <p class="copyright text-muted">
+                    Copyright &copy; cpb&#39;s Blog 2019 
+                    <br>
+                    Theme by <a href="http://huangxuan.me">Hux</a> 
+                    <span style="display: inline-block; margin: 0 5px;">
+                        <i class="fa fa-heart"></i>
+                    </span> 
+                    Ported by <a href="http://blog.kaijun.rocks">Kaijun</a> | 
+                    <iframe style="margin-left: 2px; margin-bottom:-5px;" frameborder="0" scrolling="0" width="91px" height="20px" src="https://ghbtns.com/github-btn.html?user=kaijun&repo=hexo-theme-huxblog&type=star&count=true">
+                    </iframe>
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+<!-- jQuery -->
+<script src="/js/jquery.min.js"></script>
+
+<!-- Bootstrap Core JavaScript -->
+<script src="/js/bootstrap.min.js"></script>
+
+<!-- Custom Theme JavaScript -->
+<script src="/js/hux-blog.min.js"></script>
+
+
+<!-- async load function -->
+<script>
+    function async(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+<!-- 
+     Because of the native support for backtick-style fenced code blocks 
+     right within the Markdown is landed in Github Pages, 
+     From V1.6, There is no need for Highlight.js, 
+     so Huxblog drops it officially.
+
+     - https://github.com/blog/2100-github-pages-now-faster-and-simpler-with-jekyll-3-0  
+     - https://help.github.com/articles/creating-and-highlighting-code-blocks/    
+-->
+<!--
+    <script>
+        async("http://cdn.bootcss.com/highlight.js/8.6/highlight.min.js", function(){
+            hljs.initHighlightingOnLoad();
+        })
+    </script>
+    <link href="http://cdn.bootcss.com/highlight.js/8.6/styles/github.min.css" rel="stylesheet">
+-->
+
+
+<!-- jquery.tagcloud.js -->
+<script>
+    // only load tagcloud.js in tag.html
+    if($('#tag_cloud').length !== 0){
+        async("http://yoursite.com/js/jquery.tagcloud.js",function(){
+            $.fn.tagcloud.defaults = {
+                //size: {start: 1, end: 1, unit: 'em'},
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+<!--fastClick.js -->
+<script>
+    async("https://cdn.bootcss.com/fastclick/1.0.6/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+<!-- Google Analytics -->
+
+
+
+
+<!-- Baidu Tongji -->
+
+
+<!-- Side Catalog -->
+
+
+
+
+
+<!-- Image to hack wechat -->
+<img src="http://yoursite.com/img/icon_wechat.png" width="0" height="0" />
+<!-- Migrate from head to bottom, no longer block render and still work -->
+
+</body>
+
+</html>
